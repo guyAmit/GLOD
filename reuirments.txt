@@ -1,0 +1,11 @@
+matplotlib=3.2.1=0
+numpy=1.18.5=py38h6530119_0
+numpy-base=1.18.5=py38hc3f5095_0
+pandas=1.0.5=py38h47e9c7a_0
+pip=20.1.1=py38_1
+python=3.8.3=he1778fa_0
+pytorch=1.5.1=py3.8_cuda102_cudnn7_0
+scikit-learn=0.23.1=py38h25d0782_0
+scipy=1.5.0=py38h9439919_0
+setuptools=47.3.1=py38_0
+torchvision=0.6.1=py38_cu102
