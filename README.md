@@ -8,7 +8,7 @@ In the last two years, extensive research has been performed in the domain of OO
 This research has relied mainly on training the model with OOD data or using an auxiliary (external) model for OOD detection.
 Such methods have limited capability in detecting OOD samples and may not be applicable in many real world use cases.
 In this paper, we propose GLOD -- Gaussian likelihood layer out of distribution detector -- an extended DNN classifier capable of efficiently detecting OOD samples without relying on OOD training data or an external detection model.
-\MethodName uses a layer that models the Gaussian density function of the trained classes.
+GLOD uses a layer that models the Gaussian density function of the trained classes.
 The layer outputs are used to estimate a log-likelihood ratio which is employed to detect OOD samples.
 We evaluate GLOD's detection performance on three datasets: SVHN, CIFAR-10, and CIFAR-100.
 Our results show that GLOD surpasses state-of-the-art OOD detection techniques in detection performance by a large margin.
