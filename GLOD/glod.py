@@ -21,7 +21,8 @@ class GaussianLayer(nn.Module):
         centers = self.centers.unsqueeze(0).expand(
             x.size(0), self.n_classes, self.input_dim)
         diff = x.unsqueeze(1).repeat(1, self.n_classes, 1) - centers
-        Z_log = -0.5*torch.sum(torch.log(self.covs), axis=-1) - \
+        Z_log = -0.5*torch.sum(torch.log(self.covs+np.finfo(np.float32).eps),
+                               axis=-1) - \
             0.5*self.input_dim*np.log(2*np.pi)
         exp_log = -0.5 * \
             torch.sum(diff*(1/(covs+np.finfo(np.float32).eps))*diff, axis=-1)
