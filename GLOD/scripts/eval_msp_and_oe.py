@@ -126,7 +126,11 @@ if __name__ == '__main__':
 
     for net_num in range(1, 6):
         #  Laod network
+        #  msp
         checkpoint = torch.load(f'./resnet/{dataset}_resnet{net_num}.ckpt.pth')
+        #  OE
+        # checkpoint = torch.load(f'./Outlier_Exposer/{dataset}/{dataset}_resnet{net_num}.ckpt.pth')
+
         if list(checkpoint['net'].keys())[0].split('.')[0] == 'module':
             net.load_state_dict(checkpoint['net'])
         else:
