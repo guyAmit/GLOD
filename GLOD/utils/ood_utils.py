@@ -2,8 +2,8 @@ import numpy as np
 from sklearn.metrics import auc, precision_recall_curve, roc_auc_score
 
 
-def search_thers(preds_in, level):
-    '''search_thresh(preds_in, level)
+def search_thers(preds_in, level, start_val=-25):
+    '''search_thresh(preds_in, level, start_val)
     search the threshold for a spesific tnr level
     Parameters
     ----------------
@@ -18,7 +18,7 @@ def search_thers(preds_in, level):
     threshold value, such that (preds_in <= val).sum() <=level
     '''
     step = 1
-    val = -25
+    val = start_val
     eps = 0.0005
     for _ in range(1000):
         TNR = ((preds_in >= val).sum().item() /
