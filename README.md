@@ -43,11 +43,11 @@ Figure demonstrating the seperation between OOD LLR scores and In distribution L
 ![alt text](./figures/figure1.png)
 
 
-## GLOD Package
+<!-- ## GLOD Package
 GLOD package for pytorch
 ```
 pip install glod
-```
+``` -->
 
 ### Software Requirements
 ```
