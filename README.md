@@ -7,11 +7,11 @@ However, out-of-distribution (OOD) input poses a great challenge to such models 
 In the last two years, extensive research has been performed in the domain of OOD detection.
 This research has relied mainly on training the model with OOD data or using an auxiliary (external) model for OOD detection.
 Such methods have limited capability in detecting OOD samples and may not be applicable in many real world use cases.
-In this paper, we propose GLOD -- Gaussian likelihood layer out of distribution detector -- an extended DNN classifier capable of efficiently detecting OOD samples without relying on OOD training data or an external detection model.
+In this paper, we propose GLOD -- Gaussian likelihood out of distribution detector -- an extended DNN classifier capable of efficiently detecting OOD samples without relying on OOD training data or an external detection model.
 GLOD uses a layer that models the Gaussian density function of the trained classes.
 The layer outputs are used to estimate a log-likelihood ratio which is employed to detect OOD samples.
 We evaluate GLOD's detection performance on three datasets: SVHN, CIFAR-10, and CIFAR-100.
-Our results show that GLOD surpasses state-of-the-art OOD detection techniques in detection performance by a large margin.
+Our results show that GLOD surpasses state-of-the-art OOD detection techniques in detection performance by a large margin,
 
 ## What is in this repository ?
 We provide all the necessary tools required in order evaluate OOD detectors.
@@ -20,10 +20,11 @@ The repository include the following:
 1. GLOD package-containing pytorch implamentation of GLOD and OOD evaluation utilities.
 2. Jupyter notebooks demonstrating how to use the GLOD package
 2. Efficient Python implamentation of other OOD detection techniques:
-    1. ODIN by [Liang et al. 2017]()
-    2. Mahalanobis by [Lee et al. 2018]()
-    3. Outlier Exposure by [Hendrycks et al. 2018]()
-    4. Self supervised Learning for OOD detection by [Mohseni et al. 2020]()
+    1. MSP-baseline by [Hendrycks & Gimpel et al. 2016](https://arxiv.org/pdf/1610.02136.pdf)
+    1. ODIN by [Liang et al. 2017](https://arxiv.org/pdf/1706.02690.pdf)
+    2. Mahalanobis by [Lee et al. 2018](https://papers.nips.cc/paper/7947-a-simple-unified-framework-for-detecting-out-of-distribution-samples-and-adversarial-attacks.pdf)
+    3. Outlier Exposure by [Hendrycks et al. 2018](https://arxiv.org/pdf/1812.04606.pdf)
+    4. Self supervised Learning for OOD detection by(Evaluation Only) [Mohseni et al. 2020](https://aaai.org/ojs/index.php/AAAI/article/view/5966)
 
 
 ## GLOD's Results
