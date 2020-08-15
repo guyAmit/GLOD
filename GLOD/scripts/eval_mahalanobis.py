@@ -4,12 +4,10 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torchvision
 import torchvision.transforms as transforms
 from sklearn.covariance import EmpiricalCovariance
 from sklearn.linear_model import LogisticRegressionCV
-from sklearn.metrics import auc, precision_recall_curve, roc_auc_score
 from torch.autograd import Variable
 
 from ..models.Resnet import get_ResNet34
