@@ -4,13 +4,13 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torchvision
 import torchvision.transforms as transforms
-from ..models.Resnet import get_ResNet34
-from ..utils.training_utils import validation_split
-from ..utils.ood_utils import (
-    search_thers, auroc_score, detection_accuracy)
 
+from ..models.Resnet import get_ResNet34
+from ..utils.ood_utils import auroc_score
+from ..utils.training_utils import validation_split
 
 test_transform = transforms.Compose(
     [transforms.ToTensor(),
@@ -64,14 +64,46 @@ imagenet_testset = torchvision.datasets.ImageFolder(
     root=imagenet_path, transform=test_transform)
 
 
-def predict(loader):
+def detection_accuracy(start, end, preds_in, preds_ood):
+    step = (end-start)/10000
+    val = start
+    max_det = 0
+    max_thres = val
+    while val < end:
+        TPR_in = (preds_in <= val).sum().item()/preds_in.size(0)
+        TPR_out = (preds_ood >= val).sum().item()/preds_ood.size(0)
+        detection = (TPR_in+TPR_out)/2
+        if detection > max_det:
+            max_det = detection
+            max_thres = val
+        val += step
+    return max_thres, max_det
+
+
+def search_thers(preds_in, level):
+    step = 0.01
+    val = 1.0
+    eps = 0.0001
+    while True:
+        TPR = (preds_in <= val).sum().item()/preds_in.size(0)
+        if TPR <= level+eps and TPR >= level-eps:
+            return val
+        elif TPR >= level+eps:
+            val -= step
+        else:
+            val = val + step
+            step = step*0.1
+    return val
+
+
+def predict(loader, n_classes):
     net.eval()
     predictions = []
     with torch.no_grad():
         for batch_idx, (inputs, _) in enumerate(loader):
             inputs = inputs.to(device)
-            outputs = net(inputs)
-            predictions.append(outputs.max(1)[0])
+            outputs = F.softmax(net(inputs), dim=1)
+            predictions.append(outputs[:, n_classes:].sum(1))
     predictions = torch.cat(predictions).cuda()
     return predictions
 
@@ -121,11 +153,8 @@ if __name__ == '__main__':
     results = np.zeros((4, 3, 5))
 
     for net_num in range(1, 6):
-        #  Laod network
-        #  msp
-        checkpoint = torch.load(f'./resnet/{dataset}_resnet{net_num}.ckpt.pth')
-        #  OE
-        # checkpoint = torch.load(f'./Outlier_Exposer/{dataset}/{dataset}_resnet{net_num}.ckpt.pth')
+        checkpoint = torch.load(f'./SSL/{dataset}/{dataset}_ \
+                                resnet{net_num}_ssl.ckpt.pth')
 
         if list(checkpoint['net'].keys())[0].split('.')[0] == 'module':
             net.load_state_dict(checkpoint['net'])
@@ -140,13 +169,13 @@ if __name__ == '__main__':
             preds_ood = predict(ood_test_loader).cpu()
 
             # TNR level 1
-            thres = search_thers(preds_in, 0.95, 0)
-            TNR = (preds_ood < thres).sum().item()/preds_ood.size(0)
+            thres = search_thers(preds_in, 0.95)
+            TNR = (preds_ood > thres).sum().item()/preds_ood.size(0)
             results[net_num-1, 0, data_idx] = TNR
 
             # TNR level 2
-            thres = search_thers(preds_in, 0.99, 0)
-            TNR = (preds_ood < thres).sum().item()/preds_ood.size(0)
+            thres = search_thers(preds_in, 0.99)
+            TNR = (preds_ood > thres).sum().item()/preds_ood.size(0)
             results[net_num-1, 1, data_idx] = TNR
 
             # auroc
@@ -176,7 +205,7 @@ if __name__ == '__main__':
         df = pd.DataFrame(mean, columns=['cifar10', 'lsun', 'imagenet'],
                           index=['TNR95', 'TNR99',
                                  'AUROC', 'Detection Accuracy'])
-        df.to_csv(f'./MSP_{dataset}_results.csv')
+        df.to_csv(f'./SSL_{dataset}_results.csv')
     if dataset == 'cifar10' or dataset == 'cifar100':
         print(
             f'TNR95: svhn {mean[0, 0]} | lsun {mean[0, 1]} | \
@@ -192,4 +221,4 @@ if __name__ == '__main__':
             | imagenet {mean[3, 2]}')
         df = pd.DataFrame(mean, columns=['svhn', 'lsun', 'imagenet'], index=[
                           'TNR95', 'TNR99', 'AUROC', 'Detection Accuracy'])
-        df.to_csv(f'./MSP_{dataset}_results.csv')
+        df.to_csv(f'./SSL_{dataset}_results.csv')
