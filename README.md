@@ -1,5 +1,5 @@
 # GLOD - Gaussian Likelihood OOD Detector
-Pytorch implamentation of the confernce peper GLOD [arxiv link](www.google.com).
+Pytorch implamentation of the confernce peper GLOD [arxiv link](https://arxiv.org/pdf/2008.06856.pdf).
 
 ## Abstract
 Discriminative deep neural networks (DNNs) do well at classifying input associated with the classes they have been trained on.
@@ -42,6 +42,16 @@ Figure demonstrating the seperation between OOD LLR scores and In distribution L
 
 ![alt text](./figures/figure1.png)
 
+## GLOD's citation
+Cite GLOD using this bibtext:
+```
+@article{amit2020glod,
+  title={GLOD: Gaussian Likelihood Out of Distribution Detector},
+  author={Amit, Guy and Levy, Moshe and Rosenberg, Ishai and Shabtai, Asaf and Elovici, Yuval},
+  journal={arXiv preprint arXiv:2008.06856},
+  year={2020}
+}
+```
 
 <!-- ## GLOD Package
 GLOD package for pytorch
