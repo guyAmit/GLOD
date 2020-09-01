@@ -19,7 +19,8 @@ Including our state of the art OOD detector GLOD.
 The repository include the following:
 1. GLOD package-containing pytorch implamentation of GLOD and OOD evaluation utilities.
 2. Jupyter notebooks demonstrating how to use the GLOD package
-2. Efficient Python implamentation of other OOD detection techniques:
+3. Pretrained models that were used for our paper evaluation [link](https://drive.google.com/drive/folders/1K53I7XpRxpYAgnHwnHPw5v6UCMbMYaVi?usp=sharing)
+4. Efficient Python implamentation of other OOD detection techniques:
     1. MSP-baseline by [Hendrycks & Gimpel et al. 2016](https://arxiv.org/pdf/1610.02136.pdf)
     1. ODIN by [Liang et al. 2017](https://arxiv.org/pdf/1706.02690.pdf)
     2. Mahalanobis by [Lee et al. 2018](https://papers.nips.cc/paper/7947-a-simple-unified-framework-for-detecting-out-of-distribution-samples-and-adversarial-attacks.pdf)
