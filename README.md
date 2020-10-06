@@ -5,13 +5,13 @@ Pytorch implamentation of the confernce peper GLOD [arxiv link](https://arxiv.or
 Discriminative deep neural networks (DNNs) do well at classifying input associated with the classes they have been trained on.
 However, out-of-distribution (OOD) input poses a great challenge to such models and consequently represents a major risk when these models are used in safety-critical systems.
 In the last two years, extensive research has been performed in the domain of OOD detection.
-This research has relied mainly on training the model with OOD data or using an auxiliary (external) model for OOD detection.
-Such methods have limited capability in detecting OOD samples and may not be applicable in many real world use cases.
-In this paper, we propose GLOD -- Gaussian likelihood out of distribution detector -- an extended DNN classifier capable of efficiently detecting OOD samples without relying on OOD training data or an external detection model.
+This research has relied mainly on training the model with OOD data or requiring additional computation for OOD detection.
+Such methods may not be applicable in many real world use cases.
+In this paper, we propose GLOD -- Gaussian likelihood out of distribution detector -- an extended DNN classifier capable of efficiently detecting OOD samples with no additional runtime overhead and without auxiliary training data.
 GLOD uses a layer that models the Gaussian density function of the trained classes.
-The layer outputs are used to estimate a log-likelihood ratio which is employed to detect OOD samples.
-We evaluate GLOD's detection performance on three datasets: SVHN, CIFAR-10, and CIFAR-100.
-Our results show that GLOD surpasses state-of-the-art OOD detection techniques in detection performance by a large margin,
+The layer outputs are used to estimate a Log-Likelihood Ratio which is employed to detect OOD samples.
+We evaluate GLOD's detection performance on SVHN, CIFAR-10 and CIFAR-100.
+
 
 ## What is in this repository ?
 We provide all the necessary tools required in order evaluate OOD detectors.
@@ -35,13 +35,10 @@ TNR95 table as accepted in the litriture:
 
 ![alt text](./figures/table1.png)
 
-TNR99 table, new metric, to evaluate more strictly OOD detection:
+LOG-covariance optimization vs our PGD(ours):
 
 ![alt text](./figures/table2.png)
 
-Figure demonstrating the seperation between OOD LLR scores and In distribution LLR scores:
-
-![alt text](./figures/figure1.png)
 
 ## GLOD's citation
 Cite GLOD using this bibtext:
