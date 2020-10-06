@@ -11,7 +11,7 @@ class GaussianLayer(nn.Module):
         self.centers = nn.Parameter(
             0.5*torch.randn(n_classes, input_dim).cuda())
         self.covs = nn.Parameter(
-            0.2+torch.tensor(np.random.exponential(scale=0.3,
+            0.2+torch.tensor(np.random.exponential(scale=0.5,
                                                    size=(n_classes,
                                                          input_dim))).cuda())
 
@@ -21,8 +21,7 @@ class GaussianLayer(nn.Module):
         centers = self.centers.unsqueeze(0).expand(
             x.size(0), self.n_classes, self.input_dim)
         diff = x.unsqueeze(1).repeat(1, self.n_classes, 1) - centers
-        Z_log = -0.5*torch.sum(torch.log(self.covs+np.finfo(np.float32).eps),
-                               axis=-1) - \
+        Z_log = -0.5*torch.sum(torch.log(self.covs), axis=-1) - \
             0.5*self.input_dim*np.log(2*np.pi)
         exp_log = -0.5 * \
             torch.sum(diff*(1/(covs+np.finfo(np.float32).eps))*diff, axis=-1)
@@ -30,10 +29,6 @@ class GaussianLayer(nn.Module):
         return likelihood
 
     def clip_convs(self):
-        '''
-        Cliping the convariance matricies to be alaways positive. \n
-        Use: call after optimizer.step()
-        '''
         with torch.no_grad():
             self.covs.clamp_(np.finfo(np.float32).eps)
 
