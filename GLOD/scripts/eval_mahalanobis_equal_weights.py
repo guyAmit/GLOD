@@ -1,5 +1,6 @@
 import os
 import math
+import random
 import time
 import torch
 import torchvision
@@ -9,50 +10,51 @@ import torchvision.transforms as transforms
 from torch.autograd import Variable
 from torch.nn.parameter import Parameter
 import matplotlib.pyplot as plt
-from sklearn.covariance import EmpiricalCovariance
 from torch.utils.data.sampler import SubsetRandomSampler
 import numpy as np
-from sklearn.linear_model import LogisticRegressionCV
-from sklearn.metrics import roc_auc_score, precision_recall_curve, auc
 import pandas as pd
-import random
 
+
+from sklearn.covariance import EmpiricalCovariance
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import roc_auc_score, precision_recall_curve, auc
 
 seed = 15
 random.seed(seed)
 torch.manual_seed(seed)
 np.random.seed(seed)
 
+
 test_transform = transforms.Compose(
     [transforms.ToTensor(),
      transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)), ])
 
 
-cifar10_test = torchvision.datasets.CIFAR10(root='./data', train=False,
+cifar10_test = torchvision.datasets.CIFAR10(root='../data', train=False,
                                             download=True, transform=test_transform)
 
-cifar10_train = torchvision.datasets.CIFAR10(root='./data', train=True,
+cifar10_train = torchvision.datasets.CIFAR10(root='../data', train=True,
                                              download=True, transform=test_transform)
 
 cifar10_train_loader = torch.utils.data.DataLoader(cifar10_train, batch_size=128,
                                                    shuffle=True, num_workers=2)
 
 
-svhn_train = torchvision.datasets.SVHN(root='./data/SVHN/', split='train',
+svhn_train = torchvision.datasets.SVHN(root='../data/SVHN/', split='train',
                                        download=True, transform=test_transform)
 svhn_train_loader = torch.utils.data.DataLoader(svhn_train, batch_size=128,
                                                 shuffle=True, num_workers=2)
 
-svhn_test = torchvision.datasets.SVHN(root='./data/SVHN/', split='test',
+svhn_test = torchvision.datasets.SVHN(root='../data/SVHN/', split='test',
                                       download=True, transform=test_transform)
 
-cifar100_train = torchvision.datasets.CIFAR100(root='./data', train=True,
+cifar100_train = torchvision.datasets.CIFAR100(root='../data', train=True,
                                                download=True, transform=test_transform)
 
 cifar100_train_loader = torch.utils.data.DataLoader(cifar100_train, batch_size=128,
                                                     shuffle=True, num_workers=2)
 
-cifar100_test = torchvision.datasets.CIFAR100(root='./data', train=False,
+cifar100_test = torchvision.datasets.CIFAR100(root='../data', train=False,
                                               download=True, transform=test_transform)
 
 lsun_path = os.path.expanduser('/home/guy5/Likelihood_model/LSUN_resize')
@@ -156,37 +158,6 @@ class Bottleneck(nn.Module):
         return out
 
 
-class PreActBottleneck(nn.Module):
-    '''Pre-activation version of the original Bottleneck module.'''
-    expansion = 4
-
-    def __init__(self, in_planes, planes, stride=1):
-        super(PreActBottleneck, self).__init__()
-        self.bn1 = nn.BatchNorm2d(in_planes)
-        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(planes)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3,
-                               stride=stride, padding=1, bias=False)
-        self.bn3 = nn.BatchNorm2d(planes)
-        self.conv3 = nn.Conv2d(planes, self.expansion *
-                               planes, kernel_size=1, bias=False)
-
-        if stride != 1 or in_planes != self.expansion*planes:
-            self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion*planes,
-                          kernel_size=1, stride=stride, bias=False)
-            )
-
-    def forward(self, x):
-        out = F.relu(self.bn1(x))
-        shortcut = self.shortcut(out) if hasattr(self, 'shortcut') else x
-        out = self.conv1(out)
-        out = self.conv2(F.relu(self.bn2(out)))
-        out = self.conv3(F.relu(self.bn3(out)))
-        out += shortcut
-        return out
-
-
 class ResNet(nn.Module):
     def __init__(self, block, num_blocks, num_classes=10):
         super(ResNet, self).__init__()
@@ -272,10 +243,6 @@ def Resnet34(num_c):
     return ResNet(BasicBlock, [3, 4, 6, 3], num_classes=num_c)
 
 
-def Resnet18(num_c):
-    return ResNet(BasicBlock, [2, 2, 2, 2], num_classes=num_c)
-
-
 def get_test_valid_loader(batch_size,
                           test_dataset,
                           random_seed,
@@ -306,12 +273,12 @@ def get_test_valid_loader(batch_size,
     return (test_loader, valid_loader)
 
 
-def search_thers(preds, level):
+def search_thers(preds_in, level):
     step = 1
     val = -1
     eps = 0.001
-    while True:
-        TNR = (preds >= val).sum().item()/preds.size(0)
+    for _ in range(1000):
+        TNR = (preds_in >= val).sum()/preds_in.shape[0]
         if TNR < level+eps and TNR > level-eps:
             return val
         elif TNR > level:
@@ -328,8 +295,8 @@ def detection_accuracy(start, end, preds_in, preds_ood):
     max_det = 0
     max_thres = val
     while val < end:
-        TPR_in = (preds_in >= val).sum().item()/preds_in.size(0)
-        TPR_out = (preds_ood <= val).sum().item()/preds_ood.size(0)
+        TPR_in = (preds_in >= val).sum()/preds_in.shape[0]
+        TPR_out = (preds_ood <= val).sum()/preds_ood.shape[0]
         detection = (TPR_in+TPR_out)/2
         if detection > max_det:
             max_det = detection
@@ -338,26 +305,84 @@ def detection_accuracy(start, end, preds_in, preds_ood):
     return max_thres, max_det
 
 
-def predict(loader):
+def calc_full_covs(net, trainloader, n_classes, layers):
+    net.eval()
+    layers_centers = []
+    layers_precisions = []
+    for l in range(layers):
+        outputs_list = []
+        target_list = []
+        with torch.no_grad():
+            for (inputs, targets) in trainloader:
+                inputs, targets = inputs.to(device), targets.to(device)
+                outputs = net.intermediate_forward(inputs, layer_index=l)
+                outputs_list.append(outputs)
+                target_list.append(targets)
+            outputs = torch.cat(outputs_list, axis=0)
+            target_list = torch.cat(target_list)
+            x_dim = outputs.size(1)
+            centers = torch.zeros(n_classes, x_dim).cuda()
+            normlized_outputs = []
+            for c in range(n_classes):
+                class_points = outputs[c == target_list]
+                centers[c] = torch.mean(class_points, axis=0)
+                normlized_outputs.append(
+                    class_points-centers[c].unsqueeze(0).expand(class_points.size(0), -1))
+            normlized_outputs = torch.cat(normlized_outputs, axis=0).cpu()
+            covs_lasso = EmpiricalCovariance(assume_centered=False)
+            covs_lasso.fit(normlized_outputs.cpu().numpy())
+            precision = torch.from_numpy(covs_lasso.precision_).float().cuda()
+            layers_centers.append(centers)
+            layers_precisions.append(precision)
+    return layers_precisions, layers_centers
+
+
+def calc_mahalanobis(x, precsion, centers):
+    distance = torch.zeros(x.size(0), centers.size(0)).cuda()
+    for c in range(centers.size(0)):
+        diff = x - centers[c].unsqueeze(0).expand(x.size(0), -1)
+        exp_log = -torch.mm(torch.mm(diff, precsion), diff.t()).diag()
+        distance[:, c] = exp_log
+    return distance
+
+
+def predict_ensamble_batch(net, inputs, layers_precsions, layers_centers):
+    net.eval()
+    f_list = net.feature_list(inputs)
+    preds = torch.zeros(inputs.size(0), len(layers_centers)).cuda()
+    for l in range(len(layers_centers)):
+        preds[:, l] = calc_mahalanobis(
+            f_list[l], layers_precsions[l], layers_centers[l]).max(1)[0]
+    return preds
+
+
+def predict_mahalanobis_ensamble(net, loader, layers_precsions, layers_centers):
     net.eval()
     predictions = []
     with torch.no_grad():
-        for batch_idx, (inputs, _) in enumerate(loader):
+        for batch_idx, inputs in enumerate(loader):
+            if len(inputs) == 2:
+                inputs = inputs[0]
+            if type(inputs) == list:
+                inputs = inputs[0]
             inputs = inputs.to(device)
-            outputs = F.softmax(net(inputs), dim=-1)
-            predictions.append(outputs.max(1)[0])
+            preds = predict_ensamble_batch(
+                net, inputs, layers_precsions, layers_centers)
+            predictions.append(preds)
     predictions = torch.cat(predictions).cuda()
     return predictions
 
 
 if __name__ == '__main__':
-    dataset = 'cifar100'
+    dataset = 'cifar10'
 
     ood_datasets = []
     if dataset == 'cifar10':
         ood_dataset1 = 'svhn'
         ood_dataset2 = 'cifar100'
+
         n_classes = 10
+        in_train_loader = cifar10_train_loader
         in_test_loader, in_valid_loader = get_test_valid_loader(batch_size=128,
                                                                 test_dataset=cifar10_test,
                                                                 random_seed=seed,
@@ -380,7 +405,9 @@ if __name__ == '__main__':
     if dataset == 'cifar100':
         ood_dataset1 = 'svhn'
         ood_dataset2 = 'cifar10'
+
         n_classes = 100
+        in_train_loader = cifar100_train_loader
         in_test_loader, in_valid_loader = get_test_valid_loader(batch_size=128,
                                                                 test_dataset=cifar100_test,
                                                                 random_seed=seed,
@@ -404,6 +431,7 @@ if __name__ == '__main__':
         ood_dataset1 = 'cifar10'
         ood_dataset2 = 'cifar100'
         n_classes = 10
+        in_train_loader = svhn_train_loader
         in_test_loader, in_valid_loader = get_test_valid_loader(batch_size=128,
                                                                 test_dataset=svhn_test,
                                                                 random_seed=seed,
@@ -427,6 +455,7 @@ if __name__ == '__main__':
     #  create validation sets
     ood_datasets.append((ood_dataset1, out_test_loader1, out_valid_loader1))
     ood_datasets.append((ood_dataset2, out_test_loader2, out_valid_loader2))
+
     lsun_test_loader, lsun_valid_loader = get_test_valid_loader(batch_size=128,
                                                                 test_dataset=lsun_testset,
                                                                 random_seed=seed,
@@ -452,30 +481,40 @@ if __name__ == '__main__':
                          ('imagenet', imagenet_test_loader, imagenet_valid_loader),
                          ('iSUN', iSUN_test_loader, iSUN_valid_loader)])
 
+    net = Resnet34(num_c=n_classes)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-#     net = Resnet34(num_c=n_classes)
-    net = Resnet18(num_c=n_classes)
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-#     net =  nn.DataParallel(net, device_ids=[0])
     net.to(device)
 
     results = np.zeros((4, 5, 5))
     times = []
-
     for net_num in range(1, 6):
         #  Laod network
-        #         checkpoint = torch.load(f'./{dataset}/{dataset}_resnet{net_num}.ckpt.pth')
         checkpoint = torch.load(
-            f'./resnet18/{dataset}_resnet{net_num}.ckpt.pth')
-#         if list(checkpoint['net'].keys())[0].split('.')[0] == 'module':
-#             net.load_state_dict(checkpoint['net'])
-#         else:
-#             net.module.load_state_dict(checkpoint['net'])
-        net.load_state_dict(checkpoint['net'])
+            f'../resnet/{dataset}_resnet{net_num}.ckpt.pth')
+        if list(checkpoint['net'].keys())[0].split('.')[0] == 'module':
+            net = nn.DataParallel(net, device_ids=[0])
+            net.load_state_dict(checkpoint['net'])
+            net = net.module
+        else:
+            net.load_state_dict(checkpoint['net'])
+
+        layers_precsions, layers_centers = calc_full_covs(net, in_train_loader,
+                                                          n_classes=n_classes, layers=5)
+
+        mahalanobis_in_dist = predict_mahalanobis_ensamble(net, in_test_loader,
+                                                           layers_precsions,
+                                                           layers_centers).cpu().numpy()
+
+        preds_in = mahalanobis_in_dist.sum(1, keepdims=True)
+        scaler = MinMaxScaler().fit(preds_in)
 
         start_time = time.time()
-        preds_in = predict(in_test_loader).cpu()
+        mahalanobis_in_dist = predict_mahalanobis_ensamble(net, in_test_loader,
+                                                           layers_precsions,
+                                                           layers_centers)
+
+        preds_in = mahalanobis_in_dist.sum(1, keepdims=True).cpu().numpy()
+        preds_in = scaler.transform(preds_in)
         times.append(time.time()-start_time)
 
         thres95 = search_thers(preds_in, 0.95)
@@ -484,20 +523,26 @@ if __name__ == '__main__':
         for data_idx, ood_loaders in enumerate(ood_datasets):
             ood_data_name, ood_test_loader, ood_valid_loader = ood_loaders
 
-            #  predict oe
-            preds_ood = predict(ood_test_loader).cpu()
+            #  predict with feature ensamble and input preprocess
+            mahalanobis_ood = predict_mahalanobis_ensamble(net, ood_test_loader,
+                                                           layers_precsions,
+                                                           layers_centers).cpu().numpy()
+            preds_ood = mahalanobis_ood.sum(1, keepdims=True)
+            preds_ood = scaler.transform(preds_ood)
 
-            TNR95 = (preds_ood < thres95).sum().item()/preds_ood.size(0)
-            results[0, data_idx, net_num-1] = TNR95
+            # TNR level 1
+            TNR = (preds_ood < thres95).sum()/preds_ood.shape[0]
+            results[0, data_idx, net_num-1] = TNR
+            print(f'{ood_data_name}: {TNR}')
 
             # TNR level 2
-            TNR99 = (preds_ood < thres99).sum().item()/preds_ood.size(0)
-            results[1, data_idx, net_num-1] = TNR99
+            TNR = (preds_ood < thres99).sum()/preds_ood.shape[0]
+            results[1, data_idx, net_num-1] = TNR
 
             # auroc
             y_true = np.concatenate(
-                (np.zeros(preds_ood.size(0)), np.ones(preds_in.size(0))))
-            preds = np.concatenate((preds_ood.numpy(), preds_in.numpy()))
+                (np.zeros(preds_ood.shape[0]), np.ones(preds_in.shape[0])))
+            preds = np.concatenate((preds_ood, preds_in))
             results[2, data_idx, net_num-1] = roc_auc_score(y_true, preds)
 
             # detectuin accuracy
@@ -505,20 +550,20 @@ if __name__ == '__main__':
                     1] = detection_accuracy(0, 1, preds_in, preds_ood)[1]
 
         print(f'finished {net_num} networks')
+
     mean = results.mean(axis=-1)
 
     if dataset == 'svhn':
         print(
             f'TNR95: cifar10 {mean[0 ,0]}  |  cifar100 {mean[0 ,1]}  |  lsun {mean[0, 2]}  |  imagenet {mean[0, 3]}  |  iSUN {mean[0, 4]}')
         print(
-            f'TNR99: cifar10 {mean[1, 0]}  |  cifar100 {mean[1 ,1]}  |  lsun {mean[1, 2]}  |  imagenet {mean[1 , 3]}  |  iSUN {mean[1, 4]}')
+            f'TNR99: cifar10 {mean[1, 0]}  |  cifar100 {mean[1 ,1]}  |  lsun {mean[1, 2]}  |  imagenet {mean[1 , 3]} |  iSUN {mean[1, 4]}')
         print(
             f'AUROC: cifar10 {mean[2, 0]}  |  cifar100 {mean[2 ,1]}  |  lsun {mean[2, 2]}  |  imagenet {mean[2, 3]}  |  iSUN {mean[2, 4]}')
         print(
             f'Detection Accuracy: cifar10 {mean[3, 0]}  |  cifar100 {mean[3 ,1]}  |  lsun {mean[3, 2]}  |  imagenet {mean[3, 3]}  |  iSUN {mean[3, 4]}')
         df = pd.DataFrame(mean, columns=['cifar10', 'cifar100', 'lsun', 'imagenet', 'iSUN'],
                           index=['TNR95', 'TNR99', 'AUROC', 'Detection Accuracy'])
-        df.to_csv(f'./oe_{dataset}_results_resnet18.csv')
     if dataset == 'cifar10':
         print(
             f'TNR95: svhn {mean[0, 0]}  |  cifar100 {mean[0 ,1]}  |  lsun {mean[0, 2]}  |  imagenet {mean[0, 3]}  |  iSUN {mean[0, 4]}')
@@ -530,7 +575,6 @@ if __name__ == '__main__':
             f'Detection Accuracy: svhn {mean[3, 0]}  |  cifar100 {mean[3 ,1]}  |  lsun {mean[3, 2]}  |  imagenet {mean[3, 3]}  |  iSUN {mean[3, 4]}')
         df = pd.DataFrame(mean, columns=['svhn', 'cifar100', 'lsun', 'imagenet', 'iSUN'],
                           index=['TNR95', 'TNR99', 'AUROC', 'Detection Accuracy'])
-        df.to_csv(f'./oe_{dataset}_results_resnet18.csv')
     if dataset == 'cifar100':
         print(
             f'TNR95: svhn {mean[0, 0]}  |  cifar10 {mean[0 ,1]}  |  lsun {mean[0, 2]}  |  imagenet {mean[0, 3]}  |  iSUN {mean[0, 4]}')
@@ -542,5 +586,5 @@ if __name__ == '__main__':
             f'Detection Accuracy: svhn {mean[3, 0]}  |  cifar10 {mean[3 ,1]}  |  lsun {mean[3, 2]}  |  imagenet {mean[3, 3]}  |  iSUN {mean[3, 4]}')
         df = pd.DataFrame(mean, columns=['svhn', 'cifar10', 'lsun', 'imagenet', 'iSUN'],
                           index=['TNR95', 'TNR99', 'AUROC', 'Detection Accuracy'])
-        df.to_csv(f'./oe_{dataset}_results_resnet18.csv')
+    df.to_csv(f'./Mahalanobis_equal_weights_{dataset}_results.csv')
     print(f'Avg prediction time {np.mean(np.array(times))}')

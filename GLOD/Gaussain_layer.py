@@ -9,11 +9,11 @@ class GaussianLayer(nn.Module):
         self.input_dim = input_dim
         self.n_classes = n_classes
         self.centers = nn.Parameter(
-            0.5*torch.randn(n_classes, input_dim).cuda())
+            0.5 * torch.randn(n_classes, input_dim).cuda())
         self.covs = nn.Parameter(
-            0.2+torch.tensor(np.random.exponential(scale=0.5,
-                                                   size=(n_classes,
-                                                         input_dim))).cuda())
+            0.2 + torch.tensor(np.random.exponential(scale=0.5,
+                                                     size=(n_classes,
+                                                           input_dim))).cuda())
 
     def forward(self, x):
         covs = self.covs.unsqueeze(0).expand(
@@ -21,23 +21,17 @@ class GaussianLayer(nn.Module):
         centers = self.centers.unsqueeze(0).expand(
             x.size(0), self.n_classes, self.input_dim)
         diff = x.unsqueeze(1).repeat(1, self.n_classes, 1) - centers
-        Z_log = -0.5*torch.sum(torch.log(self.covs), axis=-1) - \
-            0.5*self.input_dim*np.log(2*np.pi)
+        Z_log = -0.5 * torch.sum(torch.log(self.covs), axis=-1) - \
+            0.5 * self.input_dim * np.log(2 * np.pi)
         exp_log = -0.5 * \
-            torch.sum(diff*(1/(covs+np.finfo(np.float32).eps))*diff, axis=-1)
-        likelihood = Z_log+exp_log
+            torch.sum(diff * (1 / (covs + np.finfo(np.float32).eps))
+                      * diff, axis=-1)
+        likelihood = Z_log + exp_log
         return likelihood
 
     def clip_convs(self):
         with torch.no_grad():
             self.covs.clamp_(np.finfo(np.float32).eps)
-
-    def cov_regulaizer(self, beta=0.01):
-        '''
-        Covarianvce regulzer \n
-        Use: add to the loss if used for OOD detection
-        '''
-        return beta*(torch.norm(self.covs, p=2))
 
 
 class GlodLoss(nn.Module):
@@ -52,8 +46,13 @@ class GlodLoss(nn.Module):
         return ce+(self.lambd/x.size(0))*likelihood.sum()
 
 
-def calc_llr(preds, k):
-    top_k = preds.topk(k).values.squeeze()
-    avg_ll = np.mean(top_k[:, 1:k].cpu().detach().numpy())
-    llr = top_k[:, 0].cpu()-avg_ll
-    return llr
+def predict_llr(net, loader, k, device):
+    net.eval()
+    llr_scores = []
+    with torch.no_grad():
+        for (inputs, targets) in loader:
+            inputs, targets = inputs.to(device), targets.to(device)
+            scores = net.llr_ood_score(inputs, k)
+            llr_scores.append(scores)
+        llr_scores = torch.cat(llr_scores)
+    return llr_scores

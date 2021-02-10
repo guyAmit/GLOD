@@ -1,8 +1,12 @@
 import torch.nn as nn
 import torch.nn.functional as F
-from ..glod import GaussianLayer
 
-__all__ = ['get_ResNet34']
+__all__ = ['Resnet34', 'Resnet18']
+
+
+def conv3x3(in_planes, out_planes, stride=1):
+    return nn.Conv2d(in_planes, out_planes, kernel_size=3,
+                     stride=stride, padding=1, bias=False)
 
 
 class BasicBlock(nn.Module):
@@ -11,19 +15,19 @@ class BasicBlock(nn.Module):
     def __init__(self, in_planes, planes, stride=1):
         super(BasicBlock, self).__init__()
         self.conv1 = nn.Conv2d(
-            in_planes, planes, kernel_size=3, stride=stride, padding=1,
-            bias=False)
+            in_planes, planes, kernel_size=3, stride=stride,
+            padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(planes)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3,
                                stride=1, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(planes)
 
         self.shortcut = nn.Sequential()
-        if stride != 1 or in_planes != self.expansion*planes:
+        if stride != 1 or in_planes != self.expansion * planes:
             self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion*planes,
+                nn.Conv2d(in_planes, self.expansion * planes,
                           kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(self.expansion*planes)
+                nn.BatchNorm2d(self.expansion * planes)
             )
 
     def forward(self, x):
@@ -46,14 +50,14 @@ class Bottleneck(nn.Module):
         self.bn2 = nn.BatchNorm2d(planes)
         self.conv3 = nn.Conv2d(planes, self.expansion *
                                planes, kernel_size=1, bias=False)
-        self.bn3 = nn.BatchNorm2d(self.expansion*planes)
+        self.bn3 = nn.BatchNorm2d(self.expansion * planes)
 
         self.shortcut = nn.Sequential()
-        if stride != 1 or in_planes != self.expansion*planes:
+        if stride != 1 or in_planes != self.expansion * planes:
             self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion*planes,
+                nn.Conv2d(in_planes, self.expansion * planes,
                           kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(self.expansion*planes)
+                nn.BatchNorm2d(self.expansion * planes)
             )
 
     def forward(self, x):
@@ -66,10 +70,10 @@ class Bottleneck(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, block, num_blocks, num_classes=10, gaussian_layer=True):
+    def __init__(self, block, num_blocks, num_classes=10):
         super(ResNet, self).__init__()
         self.in_planes = 64
-        self.gaussian_layer = gaussian_layer
+
         self.conv1 = nn.Conv2d(3, 64, kernel_size=3,
                                stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
@@ -77,14 +81,10 @@ class ResNet(nn.Module):
         self.layer2 = self._make_layer(block, 128, num_blocks[1], stride=2)
         self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=2)
         self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=2)
-        if not self.gaussian_layer:
-            self.linear = nn.Linear(512*block.expansion, num_classes)
-        else:
-            self.gaussian_layer = GaussianLayer(
-                input_dim=512*block.expansion, n_classes=num_classes)
+        self.linear = nn.Linear(512 * block.expansion, num_classes)
 
     def _make_layer(self, block, planes, num_blocks, stride):
-        strides = [stride] + [1]*(num_blocks-1)
+        strides = [stride] + [1] * (num_blocks - 1)
         layers = []
         for stride in strides:
             layers.append(block(self.in_planes, planes, stride))
@@ -99,61 +99,23 @@ class ResNet(nn.Module):
         out = self.layer4(out)
         out = F.avg_pool2d(out, 4)
         out = out.view(out.size(0), -1)
-        if not self.gaussian_layer:
-            out = self.linear(out)
-        else:
-            out = self.gaussian_layer(out)
+        out = self.linear(out)
         return out
 
-    def pen_forward(self, x):
+    def penultimate_forward(self, x):
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.layer1(out)
         out = self.layer2(out)
         out = self.layer3(out)
         out = self.layer4(out)
+        out = F.avg_pool2d(out, 4)
         out = out.view(out.size(0), -1)
         return out
 
-    def intermediate_forward(self, x, layer_index):
-        out = F.relu(self.bn1(self.conv1(x)))
-        if layer_index == 0:
-            out = F.avg_pool2d(out, 32).view(out.size(0), -1)
-        if layer_index == 1:
-            out = F.avg_pool2d(self.layer1(out), 32).view(out.size(0), -1)
-        elif layer_index == 2:
-            out = self.layer1(out)
-            out = F.avg_pool2d(self.layer2(out), 16).view(out.size(0), -1)
-        elif layer_index == 3:
-            out = self.layer1(out)
-            out = self.layer2(out)
-            out = F.avg_pool2d(self.layer3(out), 8).view(out.size(0), -1)
-        elif layer_index == 4:
-            out = self.layer1(out)
-            out = self.layer2(out)
-            out = self.layer3(out)
-            out = F.avg_pool2d(self.layer4(out), 4).view(out.size(0), -1)
-        return out
 
-    def feature_list(self, x):
-        out_list = []
-        out = F.relu(self.bn1(self.conv1(x)))
-        out_list.append(F.avg_pool2d(out, 32).view(out.size(0), -1))
-        out = self.layer1(out)
-        out_list.append(F.avg_pool2d(out, 32).view(out.size(0), -1))
-        out = self.layer2(out)
-        out_list.append(F.avg_pool2d(out, 16).view(out.size(0), -1))
-        out = self.layer3(out)
-        out_list.append(F.avg_pool2d(out, 8).view(out.size(0), -1))
-        out = self.layer4(out)
-        out = F.avg_pool2d(out, 4).view(out.size(0), -1)
-        out_list.append(out)
-        return out_list
-
-    def get_cov_regulaizer(self, beta):
-        if self.gaussian_layer:
-            return self.gaussian_layer.cov_regulaizer(beta)
+def Resnet34(num_classes):
+    return ResNet(BasicBlock, [3, 4, 6, 3], num_classes=num_classes)
 
 
-def get_ResNet34(num_classes, gaussian_layer):
-    return ResNet(BasicBlock, [3, 4, 6, 3],
-                  num_classes=num_classes, gaussian_layer=gaussian_layer)
+def Resnet18(num_classes):
+    return ResNet(BasicBlock, [2, 2, 2, 2], num_classes=num_classes)

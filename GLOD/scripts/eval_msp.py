@@ -1,5 +1,6 @@
 import os
 import math
+import time
 import torch
 import torchvision
 import torch.nn as nn
@@ -14,46 +15,58 @@ import numpy as np
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.metrics import roc_auc_score, precision_recall_curve, auc
 import pandas as pd
+import random
+
+seed = 15
+random.seed(seed)
+torch.manual_seed(seed)
+np.random.seed(seed)
 
 
 test_transform = transforms.Compose(
     [transforms.ToTensor(),
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),])
+     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)), ])
 
 
 cifar10_test = torchvision.datasets.CIFAR10(root='./data', train=False,
-                                        download=True, transform=test_transform)
+                                            download=True, transform=test_transform)
 
 cifar10_train = torchvision.datasets.CIFAR10(root='./data', train=True,
-                                        download=True, transform=test_transform)
+                                             download=True, transform=test_transform)
 
 cifar10_train_loader = torch.utils.data.DataLoader(cifar10_train, batch_size=128,
-                                          shuffle=True, num_workers=2)
-                                                 
+                                                   shuffle=True, num_workers=2)
 
-svhn_train  = torchvision.datasets.SVHN(root='./data/SVHN/', split='train',
-                                        download=True, transform=test_transform)
+
+svhn_train = torchvision.datasets.SVHN(root='./data/SVHN/', split='train',
+                                       download=True, transform=test_transform)
 svhn_train_loader = torch.utils.data.DataLoader(svhn_train, batch_size=128,
-                                          shuffle=True, num_workers=2)
+                                                shuffle=True, num_workers=2)
 
 svhn_test = torchvision.datasets.SVHN(root='./data/SVHN/', split='test',
-                                        download=True, transform=test_transform)
+                                      download=True, transform=test_transform)
 
 cifar100_train = torchvision.datasets.CIFAR100(root='./data', train=True,
-                                        download=True, transform=test_transform)
+                                               download=True, transform=test_transform)
 
 cifar100_train_loader = torch.utils.data.DataLoader(cifar100_train, batch_size=128,
-                                          shuffle=True, num_workers=2)
+                                                    shuffle=True, num_workers=2)
 
 cifar100_test = torchvision.datasets.CIFAR100(root='./data', train=False,
-                                        download=True, transform=test_transform)
-                                                     
+                                              download=True, transform=test_transform)
+
 lsun_path = os.path.expanduser('/home/guy5/Likelihood_model/LSUN_resize')
-lsun_testset = torchvision.datasets.ImageFolder(root=lsun_path, transform=test_transform)
+lsun_testset = torchvision.datasets.ImageFolder(
+    root=lsun_path, transform=test_transform)
 
+iSUN_path = os.path.expanduser('/home/guy5/Likelihood_model/iSUN')
+iSUN_testset = torchvision.datasets.ImageFolder(
+    root=iSUN_path, transform=test_transform)
 
-imagenet_path = os.path.expanduser('/home/guy5/Likelihood_model/Imagenet_resize')
-imagenet_testset = torchvision.datasets.ImageFolder(root=imagenet_path, transform=test_transform)
+imagenet_path = os.path.expanduser(
+    '/home/guy5/Likelihood_model/Imagenet_resize')
+imagenet_testset = torchvision.datasets.ImageFolder(
+    root=imagenet_path, transform=test_transform)
 
 
 def conv3x3(in_planes, out_planes, stride=1):
@@ -73,7 +86,8 @@ class BasicBlock(nn.Module):
         self.shortcut = nn.Sequential()
         if stride != 1 or in_planes != self.expansion*planes:
             self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion*planes, kernel_size=1, stride=stride, bias=False),
+                nn.Conv2d(in_planes, self.expansion*planes,
+                          kernel_size=1, stride=stride, bias=False),
                 nn.BatchNorm2d(self.expansion*planes)
             )
 
@@ -98,7 +112,8 @@ class PreActBlock(nn.Module):
 
         if stride != 1 or in_planes != self.expansion*planes:
             self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion*planes, kernel_size=1, stride=stride, bias=False)
+                nn.Conv2d(in_planes, self.expansion*planes,
+                          kernel_size=1, stride=stride, bias=False)
             )
 
     def forward(self, x):
@@ -117,15 +132,18 @@ class Bottleneck(nn.Module):
         super(Bottleneck, self).__init__()
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm2d(planes)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3,
+                               stride=stride, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(planes)
-        self.conv3 = nn.Conv2d(planes, self.expansion*planes, kernel_size=1, bias=False)
+        self.conv3 = nn.Conv2d(planes, self.expansion *
+                               planes, kernel_size=1, bias=False)
         self.bn3 = nn.BatchNorm2d(self.expansion*planes)
 
         self.shortcut = nn.Sequential()
         if stride != 1 or in_planes != self.expansion*planes:
             self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion*planes, kernel_size=1, stride=stride, bias=False),
+                nn.Conv2d(in_planes, self.expansion*planes,
+                          kernel_size=1, stride=stride, bias=False),
                 nn.BatchNorm2d(self.expansion*planes)
             )
 
@@ -147,13 +165,16 @@ class PreActBottleneck(nn.Module):
         self.bn1 = nn.BatchNorm2d(in_planes)
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=1, bias=False)
         self.bn2 = nn.BatchNorm2d(planes)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3,
+                               stride=stride, padding=1, bias=False)
         self.bn3 = nn.BatchNorm2d(planes)
-        self.conv3 = nn.Conv2d(planes, self.expansion*planes, kernel_size=1, bias=False)
+        self.conv3 = nn.Conv2d(planes, self.expansion *
+                               planes, kernel_size=1, bias=False)
 
         if stride != 1 or in_planes != self.expansion*planes:
             self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion*planes, kernel_size=1, stride=stride, bias=False)
+                nn.Conv2d(in_planes, self.expansion*planes,
+                          kernel_size=1, stride=stride, bias=False)
             )
 
     def forward(self, x):
@@ -171,7 +192,7 @@ class ResNet(nn.Module):
         super(ResNet, self).__init__()
         self.in_planes = 64
 
-        self.conv1 = conv3x3(3,64)
+        self.conv1 = conv3x3(3, 64)
         self.bn1 = nn.BatchNorm2d(64)
         self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=1)
         self.layer2 = self._make_layer(block, 128, num_blocks[1], stride=2)
@@ -186,7 +207,7 @@ class ResNet(nn.Module):
             layers.append(block(self.in_planes, planes, stride))
             self.in_planes = planes * block.expansion
         return nn.Sequential(*layers)
-    
+
     def forward(self, x):
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.layer1(out)
@@ -197,7 +218,7 @@ class ResNet(nn.Module):
         out = out.view(out.size(0), -1)
         y = self.linear(out)
         return y
-    
+
     # function to extact the multiple features
     def feature_list(self, x):
         out_list = []
@@ -232,7 +253,7 @@ class ResNet(nn.Module):
             out = self.layer1(out)
             out = self.layer2(out)
             out = self.layer3(out)
-            out = F.avg_pool2d(self.layer4(out), 4).view(out.size(0), -1)               
+            out = F.avg_pool2d(self.layer4(out), 4).view(out.size(0), -1)
         return out
 
     # function to extact the penultimate features
@@ -245,21 +266,28 @@ class ResNet(nn.Module):
         out = F.avg_pool2d(out, 4)
         out = out.view(out.size(0), -1)
         return out
-    
 
-def create_Resnet34(num_c):
-    return ResNet(BasicBlock, [3,4,6,3], num_classes=num_c)
+
+def Resnet34(num_c):
+    return ResNet(BasicBlock, [3, 4, 6, 3], num_classes=num_c)
+
+
+def Resnet18(num_c):
+    return ResNet(BasicBlock, [2, 2, 2, 2], num_classes=num_c)
+
 
 def get_test_valid_loader(batch_size,
-                           test_dataset,
-                           valid_size=0.1,
-                           num_workers=2,
-                           pin_memory=False):    
+                          test_dataset,
+                          random_seed,
+                          valid_size=0.1,
+                          num_workers=2,
+                          pin_memory=False):
 
     num_test = len(test_dataset)
     indices = list(range(num_test))
     split = int(np.floor(valid_size * num_test))
 
+    np.random.seed(random_seed)
     np.random.shuffle(indices)
 
     test_idx, valid_idx = indices[split:], indices[:split]
@@ -268,22 +296,22 @@ def get_test_valid_loader(batch_size,
 
     test_loader = torch.utils.data.DataLoader(
         test_dataset, batch_size=batch_size, sampler=test_sampler,
-        num_workers=num_workers, pin_memory=pin_memory,
+        num_workers=num_workers, pin_memory=pin_memory, shuffle=False,
     )
     valid_loader = torch.utils.data.DataLoader(
         test_dataset, batch_size=batch_size, sampler=valid_sampler,
-        num_workers=num_workers, pin_memory=pin_memory,
+        num_workers=num_workers, pin_memory=pin_memory, shuffle=False,
     )
 
     return (test_loader, valid_loader)
 
 
-def search_thers(preds_in, level):
+def search_thers(preds, level):
     step = 1
     val = -1
     eps = 0.001
-    for _ in  range(1000):
-        TNR = (preds_in>=val).sum().item()/preds_in.size(0)
+    while True:
+        TNR = (preds >= val).sum().item()/preds.size(0)
         if TNR < level+eps and TNR > level-eps:
             return val
         elif TNR > level:
@@ -293,12 +321,13 @@ def search_thers(preds_in, level):
             step = step*0.1
     return val
 
+
 def detection_accuracy(start, end, preds_in, preds_ood):
     step = (end-start)/10000
     val = start
-    max_det=0
+    max_det = 0
     max_thres = val
-    while val<end:
+    while val < end:
         TPR_in = (preds_in >= val).sum().item()/preds_in.size(0)
         TPR_out = (preds_ood <= val).sum().item()/preds_ood.size(0)
         detection = (TPR_in+TPR_out)/2
@@ -309,114 +338,208 @@ def detection_accuracy(start, end, preds_in, preds_ood):
     return max_thres, max_det
 
 
-
 def predict(loader):
     net.eval()
     predictions = []
     with torch.no_grad():
         for batch_idx, (inputs, _) in enumerate(loader):
-            inputs= inputs.to(device)
-            outputs = net(inputs)
+            inputs = inputs.to(device)
+            outputs = F.softmax(net(inputs), dim=1)
             predictions.append(outputs.max(1)[0])
     predictions = torch.cat(predictions).cuda()
     return predictions
 
 
-
 if __name__ == '__main__':
-    
     dataset = 'cifar100'
 
     ood_datasets = []
     if dataset == 'cifar10':
+        ood_dataset1 = 'svhn'
+        ood_dataset2 = 'cifar100'
+
         n_classes = 10
-        in_test_loader, in_valid_loader = get_test_valid_loader(batch_size=128, test_dataset=cifar10_test, valid_size=0.1)
-        out_test_loader, out_valid_loader = get_test_valid_loader(batch_size=128, test_dataset=svhn_test, valid_size=0.1)
+        in_train_loader = cifar10_train_loader
+        in_test_loader, in_valid_loader = get_test_valid_loader(batch_size=128,
+                                                                test_dataset=cifar10_test,
+                                                                random_seed=seed,
+                                                                valid_size=0.1,
+                                                                num_workers=2,
+                                                                pin_memory=False)
+
+        out_test_loader1, out_valid_loader1 = get_test_valid_loader(batch_size=128,
+                                                                    test_dataset=svhn_test,
+                                                                    random_seed=seed,
+                                                                    valid_size=0.1,
+                                                                    num_workers=2,
+                                                                    pin_memory=False)
+        out_test_loader2, out_valid_loader2 = get_test_valid_loader(batch_size=128,
+                                                                    test_dataset=cifar100_test,
+                                                                    random_seed=seed,
+                                                                    valid_size=0.1,
+                                                                    num_workers=2,
+                                                                    pin_memory=False)
     if dataset == 'cifar100':
+        ood_dataset1 = 'svhn'
+        ood_dataset2 = 'cifar10'
+
         n_classes = 100
-        in_test_loader, in_valid_loader = get_test_valid_loader(batch_size=128, test_dataset=cifar100_test, valid_size=0.1)
-        out_test_loader, out_valid_loader = get_test_valid_loader(batch_size=128, test_dataset=svhn_test, valid_size=0.1)
+        in_train_loader = cifar100_train_loader
+        in_test_loader, in_valid_loader = get_test_valid_loader(batch_size=128,
+                                                                test_dataset=cifar100_test,
+                                                                random_seed=seed,
+                                                                valid_size=0.1,
+                                                                num_workers=2,
+                                                                pin_memory=False)
+
+        out_test_loader1, out_valid_loader1 = get_test_valid_loader(batch_size=128,
+                                                                    test_dataset=svhn_test,
+                                                                    random_seed=seed,
+                                                                    valid_size=0.1,
+                                                                    num_workers=2,
+                                                                    pin_memory=False)
+        out_test_loader2, out_valid_loader2 = get_test_valid_loader(batch_size=128,
+                                                                    test_dataset=cifar10_test,
+                                                                    random_seed=seed,
+                                                                    valid_size=0.1,
+                                                                    num_workers=2,
+                                                                    pin_memory=False)
     if dataset == 'svhn':
+        ood_dataset1 = 'cifar10'
+        ood_dataset2 = 'cifar100'
         n_classes = 10
-        in_test_loader, in_valid_loader = get_test_valid_loader(batch_size=128, test_dataset=svhn_test, valid_size=0.1)
-        out_test_loader, out_valid_loader = get_test_valid_loader(batch_size=128, test_dataset=cifar10_test, valid_size=0.1) 
+        in_train_loader = svhn_train_loader
+        in_test_loader, in_valid_loader = get_test_valid_loader(batch_size=128,
+                                                                test_dataset=svhn_test,
+                                                                random_seed=seed,
+                                                                valid_size=0.1,
+                                                                num_workers=2,
+                                                                pin_memory=False)
 
+        out_test_loader1, out_valid_loader1 = get_test_valid_loader(batch_size=128,
+                                                                    test_dataset=cifar10_test,
+                                                                    random_seed=seed,
+                                                                    valid_size=0.1,
+                                                                    num_workers=2,
+                                                                    pin_memory=False)
+
+        out_test_loader2, out_valid_loader2 = get_test_valid_loader(batch_size=128,
+                                                                    test_dataset=cifar100_test,
+                                                                    random_seed=seed,
+                                                                    valid_size=0.1,
+                                                                    num_workers=2,
+                                                                    pin_memory=False)
     #  create validation sets
-    ood_datasets.append((out_test_loader, out_valid_loader))
-    lsun_test_loader, lsun_valid_loader = get_test_valid_loader(batch_size=128, test_dataset=lsun_testset, valid_size=0.1)
-    imagenet_test_loader, imagenet_valid_loader = get_test_valid_loader(batch_size=128, test_dataset=imagenet_testset, valid_size=0.1)
-    ood_datasets.extend([(lsun_test_loader, lsun_valid_loader), (imagenet_test_loader, imagenet_valid_loader)])
+    ood_datasets.append((ood_dataset1, out_test_loader1, out_valid_loader1))
+    ood_datasets.append((ood_dataset2, out_test_loader2, out_valid_loader2))
+    lsun_test_loader, lsun_valid_loader = get_test_valid_loader(batch_size=128,
+                                                                test_dataset=lsun_testset,
+                                                                random_seed=seed,
+                                                                valid_size=0.1,
+                                                                num_workers=2,
+                                                                pin_memory=False)
 
-    net = create_Resnet34(num_c=n_classes)
+    imagenet_test_loader, imagenet_valid_loader = get_test_valid_loader(batch_size=128,
+                                                                        test_dataset=imagenet_testset,
+                                                                        random_seed=seed,
+                                                                        valid_size=0.1,
+                                                                        num_workers=2,
+                                                                        pin_memory=False)
+
+    iSUN_test_loader, iSUN_valid_loader = get_test_valid_loader(batch_size=128,
+                                                                test_dataset=iSUN_testset,
+                                                                random_seed=seed,
+                                                                valid_size=0.1,
+                                                                num_workers=2,
+                                                                pin_memory=False)
+
+    ood_datasets.extend([('lsun', lsun_test_loader, lsun_valid_loader),
+                         ('imagenet', imagenet_test_loader, imagenet_valid_loader),
+                         ('iSUN', iSUN_test_loader, iSUN_valid_loader)])
+
+    net = Resnet18(num_c=n_classes)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    net =  nn.DataParallel(net, device_ids=[0])
     net.to(device)
-        
-    results = np.zeros((5, 4, 3))
+
+    results = np.zeros((4, 5, 5))
+    times = []
     for net_num in range(1, 6):
         #  Laod network
-        checkpoint = torch.load(f'./resnet/{dataset}_resnet{net_num}.ckpt.pth')
+        checkpoint = torch.load(
+            f'./resnet/resnet18/{dataset}_resnet{net_num}.ckpt.pth')
         if list(checkpoint['net'].keys())[0].split('.')[0] == 'module':
+            net = nn.DataParallel(net, device_ids=[0])
             net.load_state_dict(checkpoint['net'])
+            net = net.module
         else:
-            net.module.load_state_dict(checkpoint['net'])
-        
+            net.load_state_dict(checkpoint['net'])
+
+        start_time = time.time()
+        preds_in = predict(in_test_loader).cpu()
+        times.append(time.time()-start_time)
+        thres95 = search_thers(preds_in, 0.95)
+        thres99 = search_thers(preds_in, 0.99)
+
         for data_idx, ood_loaders in enumerate(ood_datasets):
-            ood_test_loader, ood_valid_loader = ood_loaders
-                        
-            # predict ODIN 
-            preds_in = predict(in_test_loader).cpu()
-            preds_ood = predict(ood_test_loader).cpu()            
+            ood_data_name, ood_test_loader, ood_valid_loader = ood_loaders
+
+            preds_ood = predict(ood_test_loader).cpu()
 
             # TNR level 1
-            thres = search_thers(preds_in, 0.95)
-            TNR = (preds_ood < thres).sum().item()/preds_ood.size(0)
-            results[net_num-1, 0, data_idx] = TNR
+
+            TNR95 = (preds_ood < thres95).sum().item()/preds_ood.size(0)
+            results[0, data_idx, net_num-1] = TNR95
 
             # TNR level 2
-            thres = search_thers(preds_in, 0.99)
-            TNR = (preds_ood < thres).sum().item()/preds_ood.size(0)
-            results[net_num-1, 1, data_idx] = TNR
-            
+            TNR99 = (preds_ood < thres99).sum().item()/preds_ood.size(0)
+            results[1, data_idx, net_num-1] = TNR99
+
             # auroc
-            y_true = np.concatenate((np.zeros(preds_ood.size(0)), np.ones(preds_in.size(0))))
+            y_true = np.concatenate(
+                (np.zeros(preds_ood.size(0)), np.ones(preds_in.size(0))))
             preds = np.concatenate((preds_ood.numpy(), preds_in.numpy()))
-            results[net_num-1, 2, data_idx] = roc_auc_score(y_true, preds)
-            
+            results[2, data_idx, net_num-1] = roc_auc_score(y_true, preds)
+
             # detectuin accuracy
-            results[net_num-1, 3, data_idx] = detection_accuracy(-3, 10, preds_in, preds_ood)[1]
-            
+            results[3, data_idx, net_num -
+                    1] = detection_accuracy(0, 1, preds_in, preds_ood)[1]
+
         print(f'finished {net_num} networks')
-    mean = results.mean(axis=0)
-    
+
+    mean = results.mean(axis=-1)
+
     if dataset == 'svhn':
-        print(f'TNR95: cifar {mean[0 ,0]}  |  lsun {mean[0, 1]}  |  imagenet {mean[0, 2]}')
-        print(f'TNR99: cifar {mean[1, 0]}  |  lsun {mean[1, 1]}  |  imagenet {mean[1 , 2]}')
-        print(f'AUROC: cifar {mean[2, 0]}  |  lsun {mean[2, 1]}  |  imagenet {mean[2, 2]}')
-        print(f'Detection Accuracy: cifar {mean[3, 0]}  |  lsun {mean[3, 1]}  |  imagenet {mean[3, 2]}')
-        df = pd.DataFrame(mean, columns = ['cifar10', 'lsun', 'imagenet'], index=['TNR95', 'TNR99', 'AUROC', 'Detection Accuracy'])
-        df.to_csv(f'./MSP_{dataset}_results.csv')
-    if dataset == 'cifar10' or dataset == 'cifar100':
-        print(f'TNR95: svhn {mean[0, 0]}  |  lsun {mean[0, 1]}  |  imagenet {mean[0, 2]}')
-        print(f'TNR99: svhn {mean[1, 0]}  |  lsun {mean[1, 1]}  |  imagenet {mean[1, 2]}')
-        print(f'AUROC: svhn {mean[2, 0]}  |  lsun {mean[2, 1]}  |  imagenet {mean[2, 2]}')
-        print(f'Detection Accuracy: svhn {mean[3, 0]}  |  lsun {mean[3, 1]}  |  imagenet {mean[3, 2]}')
-        df = pd.DataFrame(mean, columns = ['svhn', 'lsun', 'imagenet'], index=['TNR95', 'TNR99', 'AUROC', 'Detection Accuracy'])
-        df.to_csv(f'./MSP_{dataset}_results.csv')
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        print(
+            f'TNR95: cifar10 {mean[0 ,0]}  |  cifar100 {mean[0 ,1]}  |  lsun {mean[0, 2]}  |  imagenet {mean[0, 3]}  |  iSUN {mean[0, 4]}')
+        print(
+            f'TNR99: cifar10 {mean[1, 0]}  |  cifar100 {mean[1 ,1]}  |  lsun {mean[1, 2]}  |  imagenet {mean[1 , 3]}  |  iSUN {mean[1, 4]}')
+        print(
+            f'AUROC: cifar10 {mean[2, 0]}  |  cifar100 {mean[2 ,1]}  |  lsun {mean[2, 2]}  |  imagenet {mean[2, 3]}  |  iSUN {mean[2, 4]}')
+        print(
+            f'Detection Accuracy: cifar10 {mean[3, 0]}  |  cifar100 {mean[3 ,1]}  |  lsun {mean[3, 2]}  |  imagenet {mean[3, 3]}  |  iSUN {mean[3, 4]}')
+        df = pd.DataFrame(mean, columns=['cifar10', 'cifar100', 'lsun', 'imagenet', 'iSUN'],
+                          index=['TNR95', 'TNR99', 'AUROC', 'Detection Accuracy'])
+    if dataset == 'cifar10':
+        print(
+            f'TNR95: svhn {mean[0, 0]}  |  cifar100 {mean[0 ,1]}  |  lsun {mean[0, 2]}  |  imagenet {mean[0, 3]}  |  iSUN {mean[0, 4]}')
+        print(
+            f'TNR99: svhn {mean[1, 0]}  |  cifar100 {mean[1 ,1]}  |  lsun {mean[1, 2]}  |  imagenet {mean[1, 3]}  |  iSUN {mean[1, 4]}')
+        print(
+            f'AUROC: svhn {mean[2, 0]}  |  cifar100 {mean[2 ,1]}  |  lsun {mean[2, 2]}  |  imagenet {mean[2, 3]}  |  iSUN {mean[2, 4]}')
+        print(
+            f'Detection Accuracy: svhn {mean[3, 0]}  |  cifar100 {mean[3 ,1]}  |  lsun {mean[3, 2]}  |  imagenet {mean[3, 3]}  |  iSUN {mean[3, 4]}')
+        df = pd.DataFrame(mean, columns=['svhn', 'cifar100', 'lsun', 'imagenet', 'iSUN'],
+                          index=['TNR95', 'TNR99', 'AUROC', 'Detection Accuracy'])
+    if dataset == 'cifar100':
+        print(
+            f'TNR95: svhn {mean[0, 0]}  |  cifar10 {mean[0 ,1]}  |  lsun {mean[0, 2]}  |  imagenet {mean[0, 3]}  |  iSUN {mean[0, 4]}')
+        print(
+            f'TNR99: svhn {mean[1, 0]}  |  cifar10 {mean[1 ,1]}  |  lsun {mean[1, 2]}  |  imagenet {mean[1, 3]}  |  iSUN {mean[1, 4]}')
+        print(
+            f'AUROC: svhn {mean[2, 0]}  |  cifar10 {mean[2 ,1]}  |  lsun {mean[2, 2]}  |  imagenet {mean[2, 3]}  |  iSUN {mean[2, 4]}')
+        print(
+            f'Detection Accuracy: svhn {mean[3, 0]}  |  cifar10 {mean[3 ,1]}  |  lsun {mean[3, 2]}  |  imagenet {mean[3, 3]}  |  iSUN {mean[3, 4]}')
+        df = pd.DataFrame(mean, columns=['svhn', 'cifar10', 'lsun', 'imagenet', 'iSUN'],
+                          index=['TNR95', 'TNR99', 'AUROC', 'Detection Accuracy'])
+    df.to_csv(f'./MSP_resnet18_{dataset}_results.csv')
+    print(f'Avg prediction time {np.mean(np.array(times))}')
