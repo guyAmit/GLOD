@@ -13,9 +13,6 @@ We evaluate FOOD's detection performance on the SVHN, CIFAR-10, and CIFAR-100 da
 Our results demonstrate that in addition to achieving state-of-the-art performance, FOOD is fast and applicable to real-world applications.
 
 
-\let\thefootnote\relax\footnotetext{*Equal contribution}
-
-
 ## What is in this repository ?
 We provide all the necessary tools required in order evaluate OOD detectors.
 Including our state of the art OOD detector FOOD.
@@ -30,8 +27,8 @@ The repository include the following:
     5. Self supervised Learning for OOD detection by(Evaluation Only) [Mohseni et al. 2020](https://aaai.org/ojs/index.php/AAAI/article/view/5966)
 
 
-## GLOD's Results
-In this section we provide a brief summerization of GLODs' detection results.
+## FOOD's Results
+In this section we provide a brief summerization of FOODs' detection results.
 
 TNR95 table as accepted in the litriture:
 
