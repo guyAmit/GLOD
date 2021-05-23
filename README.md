@@ -17,8 +17,8 @@ Our results demonstrate that in addition to achieving state-of-the-art performan
 We provide all the necessary tools required in order evaluate OOD detectors.
 Including our state of the art OOD detector FOOD.
 The repository include the following:
-1. FOOD package-containing pytorch implamentation of GLOD and OOD evaluation utilities.
-2. Jupyter notebooks demonstrating how to use the GLOD package
+1. FOOD package-containing pytorch implamentation of FOOD and OOD evaluation utilities.
+2. Jupyter notebooks demonstrating how to use the FOOD package
 3. Pretrained models that were used for our paper evaluation [link](https://drive.google.com/drive/folders/1K53I7XpRxpYAgnHwnHPw5v6UCMbMYaVi?usp=sharing)
 4. Efficient Python implamentation of other OOD detection techniques:
     1. MSP-baseline by [Hendrycks & Gimpel et al. 2016](https://arxiv.org/pdf/1610.02136.pdf)
@@ -40,8 +40,8 @@ Speed Comparison
 
 ![alt text](./figures/Method_speed_comp.png)
 
-## GLOD's citation
-Cite GLOD using this bibtext:
+## FOOD's citation
+Cite FOOD using this bibtext:
 ```
 @article{amit2020glod,
   title={GLOD: Gaussian Likelihood Out of Distribution Detector},
@@ -51,10 +51,10 @@ Cite GLOD using this bibtext:
 }
 ```
 
-<!-- ## GLOD Package
-GLOD package for pytorch
+<!-- ## FOOD Package
+FOOD package for pytorch
 ```
-pip install glod
+pip install FOOD
 ``` -->
 
 ### Software Requirements
