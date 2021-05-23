@@ -11,9 +11,7 @@ class GaussianLayer(nn.Module):
         self.centers = nn.Parameter(
             0.5 * torch.randn(n_classes, input_dim).cuda())
         self.covs = nn.Parameter(
-            0.2 + torch.tensor(np.random.exponential(scale=0.5,
-                                                     size=(n_classes,
-                                                           input_dim))).cuda())
+            0.2 + torch.tensor(np.random.exponential(scale=0.5, size=(n_classes, input_dim))).cuda())
 
     def forward(self, x):
         covs = self.covs.unsqueeze(0).expand(
@@ -34,9 +32,9 @@ class GaussianLayer(nn.Module):
             self.covs.clamp_(np.finfo(np.float32).eps)
 
 
-class GlodLoss(nn.Module):
+class FoodLoss(nn.Module):
     def __init__(self, lambd=0.003):
-        super(GlodLoss, self).__init__()
+        super(FoodLoss, self).__init__()
         self.lambd = lambd
         self.cross_entropy = nn.CrossEntropyLoss()
 

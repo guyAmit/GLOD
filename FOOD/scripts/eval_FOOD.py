@@ -1,386 +1,31 @@
-import os
 import math
+import os
+import random
 import time
-import torch
-import torchvision
-import torch.nn as nn
-import torch.nn.functional as F
-import torchvision.transforms as transforms
-from torch.autograd import Variable
-from torch.nn.parameter import Parameter
+
 import matplotlib.pyplot as plt
-from torch.utils.data.sampler import SubsetRandomSampler
 import numpy as np
 import pandas as pd
-import random
-
-
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from sklearn.linear_model import LogisticRegressionCV
+from sklearn.metrics import auc, precision_recall_curve, roc_auc_score
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
-from sklearn.metrics import roc_auc_score, precision_recall_curve, auc
+from torch.autograd import Variable
+from torch.nn.parameter import Parameter
+from torch.utils.data.sampler import SubsetRandomSampler
 
-from utils import *
+from ..Gaussain_layer import GaussianLayer
+from ..models.Resnet import Resnet18, Resnet34
+from ..utils.datasets import *
+from ..utils.training_utils import *
+from ..utils.utils import get_test_valid_loader, search_thers
 
 seed = 15
 random.seed(seed)
 torch.manual_seed(seed)
 np.random.seed(seed)
-
-test_transform = transforms.Compose(
-    [transforms.ToTensor(),
-     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)), ])
-
-
-cifar10_test = torchvision.datasets.CIFAR10(root='./data', train=False,
-                                            download=True, transform=test_transform)
-
-cifar10_train = torchvision.datasets.CIFAR10(root='./data', train=True,
-                                             download=True, transform=test_transform)
-
-cifar10_train_loader = torch.utils.data.DataLoader(cifar10_train, batch_size=128,
-                                                   shuffle=True, num_workers=2)
-
-
-svhn_train = torchvision.datasets.SVHN(root='./data/SVHN/', split='train',
-                                       download=True, transform=test_transform)
-svhn_train_loader = torch.utils.data.DataLoader(svhn_train, batch_size=128,
-                                                shuffle=True, num_workers=2)
-
-svhn_test = torchvision.datasets.SVHN(root='./data/SVHN/', split='test',
-                                      download=True, transform=test_transform)
-
-cifar100_train = torchvision.datasets.CIFAR100(root='./data', train=True,
-                                               download=True, transform=test_transform)
-
-cifar100_train_loader = torch.utils.data.DataLoader(cifar100_train, batch_size=128,
-                                                    shuffle=True, num_workers=2)
-
-cifar100_test = torchvision.datasets.CIFAR100(root='./data', train=False,
-                                              download=True, transform=test_transform)
-
-lsun_path = os.path.expanduser('/home/guy5/Likelihood_model/LSUN_resize')
-lsun_testset = torchvision.datasets.ImageFolder(
-    root=lsun_path, transform=test_transform)
-
-iSUN_path = os.path.expanduser('/home/guy5/Likelihood_model/iSUN')
-iSUN_testset = torchvision.datasets.ImageFolder(
-    root=iSUN_path, transform=test_transform)
-
-imagenet_path = os.path.expanduser(
-    '/home/guy5/Likelihood_model/Imagenet_resize')
-imagenet_testset = torchvision.datasets.ImageFolder(
-    root=imagenet_path, transform=test_transform)
-
-
-# class TinyImages(torch.utils.data.Dataset):
-
-#     def __init__(self, transform=None):
-
-#         data_file = open('./Outlier_Exposer/tiny_images.bin', "rb")
-
-#         def load_image(idx):
-#             data_file.seek(idx * 3072)
-#             data = data_file.read(3072)
-# #             return np.fromstring(data, dtype='uint8').reshape(32, 32, 3, order="F")
-#             return  np.frombuffer (data, dtype=np.uint8).reshape(32, 32, 3, order="F")
-
-#         self.load_image = load_image
-#         self.offset = 0     # offset index
-
-#         self.transform = transform
-
-#         self.cifar_idxs = []
-#         with open('./Outlier_Exposer/80mn_cifar_idxs.txt', 'r') as idxs:
-#             for idx in idxs:
-#                 # indices in file take the 80mn database to start at 1, hence "- 1"
-#                 self.cifar_idxs.append(int(idx) - 1)
-
-#         # hash table option
-#         self.cifar_idxs = set(self.cifar_idxs)
-#         self.in_cifar = lambda x: x in self.cifar_idxs
-
-#     def __getitem__(self, index):
-#         index = (index + self.offset) % 79302016
-
-#         while self.in_cifar(index):
-#             index = np.random.randint(79302017)
-
-#         img = self.load_image(index)
-#         if self.transform is not None:
-#             img = self.transform(img)
-
-#         return img, 0  # 0 is the class
-
-#     def __len__(self):
-#         return 79302017
-
-# tiny_images_dataset = TinyImages(transform=test_transform)
-
-
-class GaussianLayer(nn.Module):
-    def __init__(self, input_dim, n_classes):
-        super(GaussianLayer, self).__init__()
-        self.input_dim = input_dim
-        self.n_classes = n_classes
-        self.centers = nn.Parameter(
-            0.5 * torch.randn(n_classes, input_dim).cuda())
-        self.covs = nn.Parameter(
-            0.2 + torch.tensor(np.random.exponential(scale=0.5, size=(n_classes, input_dim))).cuda())
-
-    def forward(self, x):
-        covs = self.covs.unsqueeze(0).expand(
-            x.size(0), self.n_classes, self.input_dim)
-        centers = self.centers.unsqueeze(0).expand(
-            x.size(0), self.n_classes, self.input_dim)
-        diff = x.unsqueeze(1).repeat(1, self.n_classes, 1) - centers
-        Z_log = -0.5 * torch.sum(torch.log(self.covs), axis=-1) - \
-            0.5 * self.input_dim * np.log(2 * np.pi)
-        exp_log = -0.5 * \
-            torch.sum(diff * (1 / (covs + np.finfo(np.float32).eps))
-                      * diff, axis=-1)
-        likelihood = Z_log + exp_log
-        return likelihood
-
-    def clip_convs(self):
-        with torch.no_grad():
-            self.covs.clamp_(np.finfo(np.float32).eps)
-
-
-def conv3x3(in_planes, out_planes, stride=1):
-    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False)
-
-
-class BasicBlock(nn.Module):
-    expansion = 1
-
-    def __init__(self, in_planes, planes, stride=1):
-        super(BasicBlock, self).__init__()
-        self.conv1 = nn.Conv2d(
-            in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(planes)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3,
-                               stride=1, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(planes)
-
-        self.shortcut = nn.Sequential()
-        if stride != 1 or in_planes != self.expansion * planes:
-            self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion * planes,
-                          kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(self.expansion * planes)
-            )
-
-    def forward(self, x):
-        out = F.relu(self.bn1(self.conv1(x)))
-        out = self.bn2(self.conv2(out))
-        out += self.shortcut(x)
-        out = F.relu(out)
-        return out
-
-
-class Bottleneck(nn.Module):
-    expansion = 4
-
-    def __init__(self, in_planes, planes, stride=1):
-        super(Bottleneck, self).__init__()
-        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(planes)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3,
-                               stride=stride, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(planes)
-        self.conv3 = nn.Conv2d(planes, self.expansion *
-                               planes, kernel_size=1, bias=False)
-        self.bn3 = nn.BatchNorm2d(self.expansion * planes)
-
-        self.shortcut = nn.Sequential()
-        if stride != 1 or in_planes != self.expansion * planes:
-            self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion * planes,
-                          kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(self.expansion * planes)
-            )
-
-    def forward(self, x):
-        out = F.relu(self.bn1(self.conv1(x)))
-        out = F.relu(self.bn2(self.conv2(out)))
-        out = self.bn3(self.conv3(out))
-        out += self.shortcut(x)
-        out = F.relu(out)
-        return out
-
-
-class ResNet(nn.Module):
-    def __init__(self, block, num_blocks, num_classes=10):
-        super(ResNet, self).__init__()
-        self.in_planes = 64
-
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=3,
-                               stride=1, padding=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(64)
-        self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=1)
-        self.layer2 = self._make_layer(block, 128, num_blocks[1], stride=2)
-        self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=2)
-        self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=2)
-        self.linear = nn.Linear(512 * block.expansion, num_classes)
-
-    #         self.gaussian_layer = GaussianLayer(input_dim=512, n_classes=num_classes)
-
-    def _make_layer(self, block, planes, num_blocks, stride):
-        strides = [stride] + [1] * (num_blocks - 1)
-        layers = []
-        for stride in strides:
-            layers.append(block(self.in_planes, planes, stride))
-            self.in_planes = planes * block.expansion
-        return nn.Sequential(*layers)
-
-    def forward(self, x):
-        out = F.relu(self.bn1(self.conv1(x)))
-        out = self.layer1(out)
-        out = self.layer2(out)
-        out = self.layer3(out)
-        out = self.layer4(out)
-        out = F.avg_pool2d(out, 4)
-        out = out.view(out.size(0), -1)
-        out = self.linear(out)
-        return out
-
-    def penultimate_forward(self, x):
-        out = F.relu(self.bn1(self.conv1(x)))
-        out = self.layer1(out)
-        out = self.layer2(out)
-        out = self.layer3(out)
-        out = self.layer4(out)
-        out = F.avg_pool2d(out, 4)
-        out = out.view(out.size(0), -1)
-        return out
-
-
-def Resnet34(num_classes):
-    return ResNet(BasicBlock, [3, 4, 6, 3], num_classes=num_classes)
-
-
-def Resnet18(num_classes):
-    return ResNet(BasicBlock, [2, 2, 2, 2], num_classes=num_classes)
-
-
-class Resnet_GaussianLayer(nn.Module):
-    def __init__(self, net, num_classes=10):
-        super(Resnet_GaussianLayer, self).__init__()
-        self.net = nn.Sequential(*list(net.children())[:-1])
-        self.avgpool = nn.AvgPool2d(
-            4) if 'avgpool' not in net.state_dict().keys() else None
-        self.gaussian_layer = GaussianLayer(
-            input_dim=512, n_classes=num_classes)
-
-    def forward(self, x):
-        out = self.net(x)
-        if self.avgpool is not None:
-            out = self.avgpool(out)
-        out = out.view(out.size(0), -1)
-        out = self.gaussian_layer(out)
-        return out
-
-    def penultimate_forward(self, x):
-        out = self.net(x)
-        if self.avgpool is not None:
-            out = self.avgpool(out)
-        return out.view(out.size(0), -1)
-
-    def llr_ood_score(self, x, k=100):
-        preds = self(x)
-        topk = torch.topk(preds, k, dim=1)[0]
-        llr = topk[:, 0] - topk[:, 1:k].mean(1)
-        return llr
-
-        # function to extact the multiple features
-
-    def feature_list(self, x):
-        feature_list = list(self.net.children())
-        feature5 = feature_list[5]
-        feature4 = feature_list[4]
-        feature3 = feature_list[3]
-        feature2 = feature_list[2]
-        #feature1 = nn.Sequential(*feature_list[:2])
-        feature1 = feature_list[1]
-        feature0 = feature_list[0]
-
-        out_list = []
-        out = feature0(x)
-        out_list.append(F.max_pool2d(out, 32).view(out.size(0), -1))
-        out = feature1(out)
-        out_list.append(F.max_pool2d(out, 32).view(out.size(0), -1))
-        out = feature2(out)
-        out_list.append(F.max_pool2d(out, 32).view(out.size(0), -1))
-        out = feature3(out)
-        out_list.append(F.avg_pool2d(out, 16).view(out.size(0), -1))
-        out = feature4(out)
-        out_list.append(F.avg_pool2d(out, 4).view(out.size(0), -1))
-
-        out = feature5(out)
-        out = F.avg_pool2d(out, 4).view(out.size(0), -1)
-        out = self.gaussian_layer(out)
-        out_list.append(out)
-
-        return out_list
-
-    # function to extact a specific feature
-    def intermediate_forward(self, x, layer_index):
-        feature_list = list(self.net.children())
-        feature5 = feature_list[5]
-        feature4 = feature_list[4]
-        feature3 = feature_list[3]
-        feature2 = feature_list[2]
-        feature1 = feature_list[1]
-        feature0 = feature_list[0]
-
-        out = feature0(x)
-        if layer_index == 0:
-            out = F.max_pool2d(out, 32).view(out.size(0), -1)
-            return out
-        out = feature1(out)
-        if layer_index == 1:
-            out = F.max_pool2d(out, 32).view(out.size(0), -1)
-            return out
-        out = feature2(out)
-        if layer_index == 2:
-            out = F.max_pool2d(out, 32).view(out.size(0), -1)
-            return out
-        out = feature3(out)
-        if layer_index == 3:
-            out = F.avg_pool2d(out, 16).view(out.size(0), -1)
-            return out
-        out = feature4(out)
-        if layer_index == 4:
-            out = F.avg_pool2d(out, 4).view(out.size(0), -1)
-            return out
-
-
-def calc_params(net, trainloader, n_classes, layers):
-    net.eval()
-    layers_centers = []
-    layers_precisions = []
-    for l in range(layers):
-        outputs_list = []
-        target_list = []
-        with torch.no_grad():
-            for (inputs, targets) in trainloader:
-                inputs, targets = inputs.to(device), targets.to(device)
-                outputs = net.intermediate_forward(inputs, layer_index=l)
-                outputs_list.append(outputs)
-                target_list.append(targets)
-            outputs = torch.cat(outputs_list, axis=0)
-            target_list = torch.cat(target_list)
-            x_dim = outputs.size(1)
-            centers = torch.zeros(n_classes, x_dim).cuda()
-            covs = torch.zeros(n_classes, x_dim).cuda()
-            for c in range(n_classes):
-                class_points = outputs[c == target_list]
-                centers[c] = torch.mean(class_points, axis=0)
-                covs[c] = torch.var(class_points, axis=0)
-            precision = torch.div(1.0, covs + np.finfo(np.float32).eps)
-            layers_centers.append(centers)
-            layers_precisions.append(precision)
-    return layers_precisions, layers_centers
 
 
 def calc_likelihood(x, precsion, centers):
@@ -443,7 +88,8 @@ def predict_ensamble(net, loader, layers_precsions,
                 inputs = inputs[0]
             inputs = inputs.to(device)
             preds = predict_ensamble_batch(net, inputs,
-                                           layers_precsions, layers_centers, n_classes)
+                                           layers_precsions,
+                                           layers_centers, n_classes)
             predictions.append(preds)
     predictions = torch.cat(predictions).cuda()
     return predictions
@@ -477,18 +123,18 @@ for d in [0, 1, 2]:
     upper[d] = (1 - mu[d]) / std[d]
 
 
-def gen_adversarial_batch_bound(net, inputs, labels, n_classes, init_eps, bound):
+def gen_adversarial_batch_bound(net, inputs, labels, n_classes,
+                                init_eps, bound):
     net.eval()
     pertubed_inputs = []
-    samples_reached = 0
     input_shape = (1, *(inputs[0].shape))
     for idx in range(inputs.shape[0]):
-        sample = torch.autograd.Variable(inputs[idx].cuda(device).reshape(*input_shape),
-                                         requires_grad=True)
+        sample = torch.autograd.Variable(
+            inputs[idx].cuda(device).reshape(*input_shape),
+            requires_grad=True)
         eps = init_eps
         lowest_llr = np.inf
         likelihood = net(sample)
-        prediction = likelihood.max(1)[1]
         for i in range(8):
             topk = torch.topk(likelihood, n_classes, dim=1)[0]
             llr = topk[:, 0] - topk[:, 1:n_classes].mean(1)[0]

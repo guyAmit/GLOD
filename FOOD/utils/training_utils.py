@@ -44,7 +44,6 @@ class Resnet_GaussianLayer(nn.Module):
         feature4 = feature_list[4]
         feature3 = feature_list[3]
         feature2 = feature_list[2]
-        #feature1 = nn.Sequential(*feature_list[:2])
         feature1 = feature_list[1]
         feature0 = feature_list[0]
 
@@ -70,7 +69,6 @@ class Resnet_GaussianLayer(nn.Module):
     # function to extact a specific feature
     def intermediate_forward(self, x, layer_index):
         feature_list = list(self.net.children())
-        feature5 = feature_list[5]
         feature4 = feature_list[4]
         feature3 = feature_list[3]
         feature2 = feature_list[2]
@@ -99,10 +97,8 @@ class Resnet_GaussianLayer(nn.Module):
             return out
 
 
-def calc_params(net, trainloader, n_classes, layers, device):
-    '''
-    calc manualy the parameters of the gaussian_layer
-    '''
+def calc_params(net, trainloader, n_classes,
+                layers, device):
     net.eval()
     layers_centers = []
     layers_precisions = []
