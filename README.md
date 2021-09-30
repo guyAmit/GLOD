@@ -25,6 +25,7 @@ The repository include the following:
     3. Mahalanobis equal weights by [Lee et al. 2018](https://papers.nips.cc/paper/7947-a-simple-unified-framework-for-detecting-out-of-distribution-samples-and-adversarial-attacks.pdf)
     4. Outlier Exposure by [Hendrycks et al. 2018](https://arxiv.org/pdf/1812.04606.pdf)
     5. Self supervised Learning for OOD detection by(Evaluation Only) [Mohseni et al. 2020](https://aaai.org/ojs/index.php/AAAI/article/view/5966)
+5. Downlaod links for OOD evaluation datasets
 
 
 ## FOOD's Results
@@ -51,12 +52,6 @@ Cite FOOD using this bibtext:
 }
 ```
 
-<!-- ## FOOD Package
-FOOD package for pytorch
-```
-pip install FOOD
-``` -->
-
 ### Software Requirements
 ```
 matplotlib=3.2.1=0
@@ -71,3 +66,10 @@ scipy=1.5.0=py38h9439919_0
 setuptools=47.3.1=py38_0
 torchvision=0.6.1=py38_cu102
 ```
+
+### OOD Evaluation Datasets Download Links
+1. [LSUN - resize](https://www.dropbox.com/s/moqh2wh8696c3yl/LSUN_resize.tar.gz)
+2. [ISUN](https://www.dropbox.com/s/ssz7qxfqae0cca5/iSUN.tar.gz)
+3. [Imagenet](https://www.dropbox.com/s/kp3my3412u5k9rl/Imagenet_resize.tar.gz)
+
+Links taken from the [ODIN](https://github.com/facebookresearch/odin) repository
