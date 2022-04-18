@@ -18,14 +18,13 @@ We provide all the necessary tools required in order evaluate OOD detectors.
 Including our state of the art OOD detector FOOD.
 The repository include the following:
 1. FOOD package-containing pytorch implamentation of FOOD and OOD evaluation utilities.
-2. Jupyter notebooks demonstrating how to use the FOOD package
-3. Pretrained models that were used for our paper evaluation [link](https://drive.google.com/drive/folders/1K53I7XpRxpYAgnHwnHPw5v6UCMbMYaVi?usp=sharing)
-4. Efficient Python implamentation of other OOD detection techniques:
+2. Pretrained models that were used for our paper evaluation [link](https://drive.google.com/drive/folders/1K53I7XpRxpYAgnHwnHPw5v6UCMbMYaVi?usp=sharing)
+3. Efficient Python implamentation of other OOD detection techniques:
     1. MSP-baseline by [Hendrycks & Gimpel et al. 2016](https://arxiv.org/pdf/1610.02136.pdf)
     3. Mahalanobis equal weights by [Lee et al. 2018](https://papers.nips.cc/paper/7947-a-simple-unified-framework-for-detecting-out-of-distribution-samples-and-adversarial-attacks.pdf)
-    4. Outlier Exposure by [Hendrycks et al. 2018](https://arxiv.org/pdf/1812.04606.pdf)
+    4. Outlier Exposure(Evaluation Only) by [Hendrycks et al. 2018](https://arxiv.org/pdf/1812.04606.pdf)
     5. Self supervised Learning for OOD detection by(Evaluation Only) [Mohseni et al. 2020](https://aaai.org/ojs/index.php/AAAI/article/view/5966)
-5. Downlaod links for OOD evaluation datasets
+4. Downlaod links for OOD evaluation datasets
 
 
 ## FOOD's Results
